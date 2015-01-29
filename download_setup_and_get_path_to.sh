@@ -1,17 +1,31 @@
 #!/bin/bash
+
+#
+# INPUT
+#
 echo 'Is redownload enabled: '$REDOWNLOAD
 SHALL_REDOWNLOAD=$REDOWNLOAD
 if [ -z $REDOWNLOAD ] && [ -z $SHALL_REDOWNLOAD ]; then
     SHALL_REDOWNLOAD=1 
-	echo 'Defaulting to enabled (because an existing file my be broken/incomplete/truncated).'
+	echo 'Defaulting to enabled (because an existing file my be broken/incomplete/truncated). (Set SHALL_REDOWNLOAD=0 to prevent redownload if file has been downloaded earlier.)'
 fi
 echo 'Is rebuild enabled: '$REBUILD
 SHALL_REBUILD=$REBUILD
 if [ -z $REBUILD ] && [ -z $SHALL_REBUILD ]; then
     SHALL_REBUILD=0
-	echo 'Rebuilding deactivated by default.'
+	echo 'Rebuilding deactivated by default. (set REBUILD=1 to activate)'
+fi
+echo 'Shall return path to virtualenv python: '$VIRTUALENVPYTHON
+SHALL_RETURN_VIRTUALENVPYTHON=$VIRTUALENVPYTHON
+if [ -z $VIRTUALENVPYTHON ] && [ -z $SHALL_RETURN_VIRTUALENVPYTHON ]; then
+    SHALL_RETURN_VIRTUALENVPYTHON=0
+	echo 'Returning virtualenv python path deactivated by default. (set VIRTUALENVPYTHON=1 to enable)'
 fi
 
+
+#
+# MAIN PROGRAM
+#
 IS_PYTHON_VERSION_AUTOMATIC=0
 if [ -z $PYTHON_VERSION_2DIGITS ]; then
 	PYTHON_VERSION_2DIGITS='3' # TODO Keep up to date manually or figure highest available number by checking for wget result being valid.
@@ -144,15 +158,25 @@ if [ ! -f $PATH_TO_PYTHON ] || [ $SHALL_REBUILD -ne 0 ]; then
 	
 	# To compile with zlib support: following amazing asanadi: 
 	# http://stackoverflow.com/questions/12344970/building-python-from-source-with-zlib-support
-	find . -type f -samefile 'Modules/Setup.dist' -exec sed -i 's/^[#]zlib/zlib/' {} \;
+	MAKEFILE='Modules/Setup'
+	if [[ ! -f $MAKEFILE ]]; then
+	    cp Modules/Setup.dist Modules/Setup
+	fi
+	find . -type f -samefile $MAKEFILE -exec sed -i 's/^[#]zlib/zlib/' {} \;
 	cd Modules/zlib
 	echo 'Building zlib ...'
 	./configure --prefix=$PATH_TO_ALTINSTALL
 	make
 	make install
 	echo '*done*'
-	
     cd ../..
+
+	echo 'Enabling _sha packages ...'
+	find . -type f -samefile $MAKEFILE -exec sed -i 's/^[#]_sha/_sha/' {} \;
+	#cd Modules/_sha256 not required as has no subfolder in Modules.
+	echo '*done*'
+    #cd ../..
+	
 	./configure --prefix=$PATH_TO_ALTINSTALL
 	#make
 	make altinstall
@@ -163,12 +187,14 @@ if [ ! -f $PATH_TO_PYTHON ] || [ $SHALL_REBUILD -ne 0 ]; then
 	
 fi
 
-echo $PATH_TO_PYTHON
 
 # To allow to install missing packages easily using 'pip'.
 VIRTUALENV='virtualenv-1.9.1'
 ARCHIVE=$VIRTUALENV'.tar.gz'
 if [[ -f $ARCHIVE ]] && [[ $SHALL_REDOWNLOAD -ne 0 ]]; then
+	rm $ARCHIVE
+fi
+if [[ ! -f $ARCHIVE ]]; then
     echo 'Downloading virtualenv ...'
     wget http://pypi.python.org/packages/source/v/virtualenv/$ARCHIVE
     echo '*done*'
@@ -193,13 +219,21 @@ fi
 echo 'Creating virtualenv in '$PATH_TO_CUSTOM_VIRTUALENV' ...'
 $PATH_TO_ALTINSTALL'/bin/virtualenv' $PATH_TO_CUSTOM_VIRTUALENV --python $PATH_TO_PYTHON
 echo 'Activating virtualenv (deactive after use via "source '$PATH_TO_CUSTOM_VIRTUALENV'/deactivate") ...'
-source $PATH_TO_CUSTOM_VIRTUALENV/activate
+source $PATH_TO_CUSTOM_VIRTUALENV/bin/activate
 
 
 # If it's not complaining of missing packages in the altinstall lib/<pythonversion>/site-packages/, then install missing packages. 
 #~/shell__kx/kx install pip
-#pip install 
+#$PATH_TO_CUSTOM_VIRTUALENV/bin/pip install <package>
 
 
-# Don't forget to deactivate the virtual environment after use:
-#source $PATH_TO_CUSTOM_VIRTUALENV/deactivate
+# Deactivating the virtual environment after use not foreseen or required? (file not exists)
+#source $PATH_TO_CUSTOM_VIRTUALENV/bin/deactivate
+
+
+if [[ $SHALL_RETURN_VIRTUALENVPYTHON -ne 0 ]]; then
+    echo $PATH_TO_CUSTOM_VIRTUALENV/bin/python$PYTHON_VERSION_2DIGITS
+else
+    echo $PATH_TO_PYTHON
+fi
+
