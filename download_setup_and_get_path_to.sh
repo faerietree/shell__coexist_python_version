@@ -159,9 +159,9 @@ PATH_TO_PYTHON=$PATH_TO_ALTINSTALL'/bin/python'$PYTHON_VERSION_2DIGITS
 if [ ! -f $PATH_TO_PYTHON ] || [ $SHALL_REBUILD -ne 0 ]; then
     silent echo 'Building python in directory ./Python-'$PYTHON_VERSION
     cd './Python-'$PYTHON_VERSION
-    pwd
+    #pwd
 	silent echo 'Using prefix:'$PATH_TO_ALTINSTALL
-	ls
+	silent ls
 	
 	# To compile with zlib support: following amazing asanadi: 
 	# http://stackoverflow.com/questions/12344970/building-python-from-source-with-zlib-support
@@ -183,6 +183,16 @@ if [ ! -f $PATH_TO_PYTHON ] || [ $SHALL_REBUILD -ne 0 ]; then
 	#cd Modules/_sha256 not required as has no subfolder in Modules.
 	silent echo '*done*'
     #cd ../..
+	
+	silent echo 'Enabling socket module for schematic file converter et alia ...'
+	find . -type f -samefile $MAKEFILE -exec sed -i 's/^[#]_socket/_socket/' {} \;
+	find . -type f -samefile $MAKEFILE -exec sed -i 's/^[#]SSL/SSL/' {} \;
+	find . -type f -samefile $MAKEFILE -exec sed -i 's/^[#]_ssl/_ssl/' {} \;
+	find . -type f -samefile $MAKEFILE -exec sed -i 's/^[#][\t ]*-DUSE_SSL/   -DUSE_SSL/' {} \;
+	find . -type f -samefile $MAKEFILE -exec sed -i 's/^[#][\t ]*-L[$][(]SSL/   -L$(SSL/' {} \;
+	
+	
+	
 	
 	silent ./configure --prefix=$PATH_TO_ALTINSTALL
 	#make
