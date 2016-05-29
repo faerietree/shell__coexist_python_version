@@ -1,4 +1,4 @@
-Coexisting alternate python version(s)
+Coexist (alternative) python version(s)
 ===
 
 When to use it?
